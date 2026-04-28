@@ -5,6 +5,7 @@ import { closePosition } from "../services/closeService";
 
 const formatUsd = (value) => {
     const num = Number(value || 0);
+
     return num.toLocaleString(undefined, {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
@@ -19,14 +20,24 @@ const Positions = () => {
 
     const handleClose = async (coin) => {
         try {
+            if (!address) {
+                alert("Connect wallet first");
+                return;
+            }
+
             setClosingCoin(coin);
 
-            const res = await closePosition(coin);
+            const res = await closePosition({
+                coin,
+                address,
+            });
 
             console.log("CLOSE RESULT:", res);
 
             if (res?.error) {
                 alert("❌ Close failed: " + res.error);
+            } else if (res?.message) {
+                alert(res.message);
             } else {
                 alert("✅ Position closed");
             }
@@ -44,6 +55,7 @@ const Positions = () => {
                 <h3 className="text-sm font-semibold text-gray-300 mb-2">
                     Positions
                 </h3>
+
                 <p className="text-xs text-gray-500">
                     Connect wallet to view positions.
                 </p>
@@ -105,7 +117,7 @@ const Positions = () => {
                                 <div className="flex justify-between">
                                     <span>Size</span>
                                     <span className="text-white">
-                                        {pos.absSize}
+                                        {pos.absSize} {pos.coin}
                                     </span>
                                 </div>
 
@@ -124,6 +136,36 @@ const Positions = () => {
                                 </div>
 
                                 <div className="flex justify-between">
+                                    <span>Position Value</span>
+                                    <span className="text-white">
+                                        ${formatUsd(pos.positionValue)}
+                                    </span>
+                                </div>
+
+                                <div className="flex justify-between">
+                                    <span>Margin Used</span>
+                                    <span className="text-white">
+                                        ${formatUsd(pos.marginUsed)}
+                                    </span>
+                                </div>
+
+                                <div className="flex justify-between">
+                                    <span>Leverage</span>
+                                    <span className="text-white">
+                                        {pos.leverage}x
+                                    </span>
+                                </div>
+
+                                <div className="flex justify-between">
+                                    <span>Liquidation</span>
+                                    <span className="text-red-400">
+                                        {pos.liquidationPrice
+                                            ? `$${formatUsd(pos.liquidationPrice)}`
+                                            : "-"}
+                                    </span>
+                                </div>
+
+                                <div className="flex justify-between">
                                     <span>Unrealized PnL</span>
                                     <span
                                         className={
@@ -133,7 +175,7 @@ const Positions = () => {
                                         }
                                     >
                                         ${formatUsd(pos.pnl)} (
-                                        {pos.pnlPercent.toFixed(2)}%)
+                                        {Number(pos.pnlPercent || 0).toFixed(2)}%)
                                     </span>
                                 </div>
                             </div>

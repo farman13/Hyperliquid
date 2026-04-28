@@ -1,11 +1,27 @@
-export async function closePosition(coin) {
-    const res = await fetch("http://localhost:3000/close-position", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ coin }),
-    });
+const BASE_URL = "http://localhost:3000";
 
-    return res.json();
+export async function closePosition({ coin, address }) {
+    try {
+        const res = await fetch(`${BASE_URL}/close-position`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                coin,
+                address,
+            }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            throw new Error(data?.error || "Close failed");
+        }
+
+        return data;
+    } catch (err) {
+        console.error("Close API Error:", err);
+        return { error: err.message };
+    }
 }

@@ -68,7 +68,10 @@ app.post("/trade", async (req, res) => {
 
         console.log("📥 Incoming trade:", req.body);
 
-        // ✅ Validate input
+        // ✅ Hyperliquid-style:
+        // size = coin/base amount, example:
+        // BTC size = 0.001
+        // ETH size = 0.05
         const error = validateTrade({ coin, isLong, size, leverage });
         if (error) {
             return res.status(400).json({ error });
@@ -86,7 +89,7 @@ app.post("/trade", async (req, res) => {
         const assetId = converter.getAssetId(coin);
         const szDecimals = converter.getSzDecimals(coin);
 
-        if (assetId === undefined) {
+        if (assetId === undefined || szDecimals === undefined) {
             return res.status(400).json({
                 error: "Invalid asset"
             });
@@ -95,8 +98,6 @@ app.post("/trade", async (req, res) => {
         // =====================================
         // ⚙️ SET LEVERAGE
         // =====================================
-        console.log("⚙️ Setting leverage:", leverage);
-
         await exchangeClient.updateLeverage({
             asset: assetId,
             isCross: true,
@@ -116,21 +117,35 @@ app.post("/trade", async (req, res) => {
         }
 
         // =====================================
-        // 📊 MARKET ORDER SIMULATION (IOC)
+        // 📊 MARKET ORDER SIMULATION
+        // Hyperliquid has no market order type.
+        // Use aggressive IOC limit order.
         // =====================================
         const tolerance = 0.01;
         const price = mid * (isLong ? 1 + tolerance : 1 - tolerance);
 
         const formattedPrice = formatPrice(price, szDecimals);
+
+        // ✅ IMPORTANT:
+        // Do NOT convert USD -> coin here.
+        // Frontend sends coin amount directly.
         const formattedSize = formatSize(String(size), szDecimals);
+
+        if (!formattedSize || Number(formattedSize) <= 0) {
+            return res.status(400).json({
+                error: "Invalid order size after formatting"
+            });
+        }
 
         console.log("📊 Order:", {
             coin,
+            assetId,
             isLong,
-            size,
             leverage,
+            mid,
             formattedPrice,
-            formattedSize
+            formattedSize,
+            notionalUsd: Number(formattedSize) * mid
         });
 
         // =====================================
@@ -143,22 +158,35 @@ app.post("/trade", async (req, res) => {
                 p: formattedPrice,
                 s: formattedSize,
                 r: false,
-                t: { limit: { tif: "Ioc" } }, // MARKET
+                t: { limit: { tif: "Ioc" } },
             }],
             grouping: "na",
+
+            // Builder fee configuration
+            builder: {
+                b: "0x1e9E2B1Ef6c69169DFb1dB75F216CA174BC3e95c",
+                f: 10, // 1 bp = 0.01%
+            },
         });
 
         console.log("✅ Trade result:", result);
 
         res.json({
             success: true,
-            result
+            result,
+            meta: {
+                coin,
+                side: isLong ? "LONG" : "SHORT",
+                size: formattedSize,
+                price: formattedPrice,
+                notionalUsd: Number(formattedSize) * mid,
+                leverage: Number(leverage)
+            }
         });
 
     } catch (err) {
         console.error("❌ TRADE ERROR:", err);
 
-        // 🔥 Friendly errors
         if (err?.message?.includes("does not exist")) {
             return res.status(400).json({
                 error: "User not onboarded. Deposit funds first."
@@ -258,10 +286,14 @@ app.get("/positions/:address", async (req, res) => {
 // =====================================
 app.post("/close-position", async (req, res) => {
     try {
-        const { coin } = req.body;
+        const { coin, address } = req.body;
 
         if (!coin) {
             return res.status(400).json({ error: "coin required" });
+        }
+
+        if (!address) {
+            return res.status(400).json({ error: "user address required" });
         }
 
         if (!converter) {
@@ -271,12 +303,13 @@ app.post("/close-position", async (req, res) => {
         const assetId = converter.getAssetId(coin);
         const szDecimals = converter.getSzDecimals(coin);
 
-        if (assetId === undefined) {
+        if (assetId === undefined || szDecimals === undefined) {
             return res.status(400).json({ error: "invalid asset" });
         }
 
+        // ✅ positions are on USER/master wallet, not agent wallet
         const state = await infoClient.clearinghouseState({
-            user: agentWallet.address,
+            user: address,
         });
 
         const position = state.assetPositions.find(
@@ -284,11 +317,14 @@ app.post("/close-position", async (req, res) => {
         );
 
         if (!position || Number(position.position.szi) === 0) {
-            return res.json({ success: false, message: "No open position" });
+            return res.json({
+                success: false,
+                message: "No open position",
+            });
         }
 
         const rawSize = Number(position.position.szi);
-        const size = Math.abs(rawSize);
+        const closeSize = Math.abs(rawSize);
         const isLong = rawSize > 0;
 
         const mids = await infoClient.allMids();
@@ -299,15 +335,21 @@ app.post("/close-position", async (req, res) => {
         }
 
         const tolerance = 0.01;
+
+        // long close = sell below mid
+        // short close = buy above mid
         const price = mid * (isLong ? 1 - tolerance : 1 + tolerance);
+
+        const formattedPrice = formatPrice(price, szDecimals);
+        const formattedSize = formatSize(String(closeSize), szDecimals);
 
         const result = await exchangeClient.order({
             orders: [{
                 a: assetId,
                 b: !isLong,
-                p: formatPrice(price, szDecimals),
-                s: formatSize(String(size), szDecimals),
-                r: true, // ✅ reduce-only
+                p: formattedPrice,
+                s: formattedSize,
+                r: true, // reduce-only
                 t: { limit: { tif: "Ioc" } },
             }],
             grouping: "na",
@@ -318,18 +360,19 @@ app.post("/close-position", async (req, res) => {
             closed: true,
             coin,
             sideClosed: isLong ? "LONG" : "SHORT",
-            size,
+            size: formattedSize,
+            price: formattedPrice,
             result,
         });
 
     } catch (err) {
         console.error("❌ CLOSE ERROR:", err);
+
         res.status(500).json({
             error: err.message || "close failed",
         });
     }
 });
-
 // =====================================
 // ❤️ HEALTH CHECK
 // =====================================

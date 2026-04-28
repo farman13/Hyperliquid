@@ -37,33 +37,34 @@ export function usePositions(address) {
                         const absSize = Math.abs(rawSize);
                         const entryPrice = Number(p.entryPx || 0);
                         const markPrice = Number(prices?.[coin] || 0);
+
                         const isLong = rawSize > 0;
                         const side = isLong ? "LONG" : "SHORT";
 
-                        const pnl =
-                            entryPrice && markPrice
-                                ? isLong
-                                    ? ((markPrice - entryPrice) / entryPrice) * absSize
-                                    : ((entryPrice - markPrice) / entryPrice) * absSize
-                                : 0;
-
-                        const pnlPercent =
-                            entryPrice && markPrice
-                                ? isLong
-                                    ? ((markPrice - entryPrice) / entryPrice) * 100
-                                    : ((entryPrice - markPrice) / entryPrice) * 100
-                                : 0;
+                        const pnl = Number(p.unrealizedPnl || 0);
+                        const pnlPercent = Number(p.returnOnEquity || 0) * 100;
 
                         return {
                             coin,
                             side,
                             isLong,
+
                             size: rawSize,
                             absSize,
+
                             entryPrice,
                             markPrice,
+
                             pnl,
                             pnlPercent,
+
+                            // ✅ REAL values from Hyperliquid
+                            liquidationPrice: Number(p.liquidationPx || 0),
+                            marginUsed: Number(p.marginUsed || 0),
+                            positionValue: Number(p.positionValue || 0),
+                            leverage: Number(p.leverage?.value || 0),
+                            maxLeverage: Number(p.maxLeverage || 0),
+
                             raw: item,
                         };
                     });
@@ -74,9 +75,13 @@ export function usePositions(address) {
                 }
             } catch (err) {
                 console.log("Positions error:", err);
-                if (isMounted) setError(err.message || "Failed to fetch positions");
+                if (isMounted) {
+                    setError(err.message || "Failed to fetch positions");
+                }
             } finally {
-                if (isMounted) setLoading(false);
+                if (isMounted) {
+                    setLoading(false);
+                }
             }
         };
 
