@@ -19,7 +19,7 @@ const getMetaMaskProvider = () => {
     throw new Error("MetaMask not found");
 };
 
-export async function approveBuilderFee(builderAddress) {
+export async function approveBuilderFee(builderAddress, feeRate) {
     try {
         const provider = getMetaMaskProvider();
 
@@ -28,6 +28,10 @@ export async function approveBuilderFee(builderAddress) {
         });
 
         const account = accounts[0];
+
+        if (!account) {
+            throw new Error("No account connected");
+        }
 
         const wallet = createWalletClient({
             chain: arbitrum,
@@ -42,7 +46,7 @@ export async function approveBuilderFee(builderAddress) {
 
         await client.approveBuilderFee({
             builder: builderAddress,
-            maxFeeRate: "0.01%",
+            maxFeeRate: feeRate,
         });
 
         return { success: true };

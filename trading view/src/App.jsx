@@ -11,8 +11,8 @@ function App() {
     <div className=' bg-black'>
       < ConnectButton />
       <div className='flex bg-black'>
-        <div className='m-4'>
-          {/* <TradingViewWidget /> */}
+        <div className='m-4 ml-6'>
+          <TradingViewWidget />
         </div>
         <div className="w-[400px] m-4">
           <TradePanel />

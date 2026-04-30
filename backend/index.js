@@ -164,8 +164,8 @@ app.post("/trade", async (req, res) => {
 
             // Builder fee configuration
             builder: {
-                b: "0x1e9E2B1Ef6c69169DFb1dB75F216CA174BC3e95c",
-                f: 10, // 1 bp = 0.01%
+                b: "0xB7c94Ac7C1C16744E9f3cDDEC09F54920D2C39B8",
+                f: 100, // 1 bp = 0.01%
             },
         });
 
@@ -250,6 +250,38 @@ app.get("/balance/:address", async (req, res) => {
 
         res.status(500).json({
             error: err.message
+        });
+    }
+});
+
+app.get("/debug-state/:address", async (req, res) => {
+    try {
+        const { address } = req.params;
+
+        const state = await infoClient.clearinghouseState({
+            user: address,
+        });
+
+        res.json(state);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get("/builder-stats/:address", async (req, res) => {
+    try {
+        const { address } = req.params;
+
+        const result = await infoClient.referral({
+            user: address,
+        });
+
+        res.json(result);
+    } catch (err) {
+        console.error("❌ BUILDER STATS ERROR:", err);
+
+        res.status(500).json({
+            error: err.message || "failed to fetch builder stats",
         });
     }
 });

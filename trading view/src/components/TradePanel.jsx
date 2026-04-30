@@ -29,8 +29,20 @@ const TradePanel = () => {
 
     const AGENT_ADDRESS = "0x4A04b217a88BAEEEbc6A726A6411Ce2A74176fC2";
 
-    // ✅ replace with your real builder EVM address
-    const BUILDER_ADDRESS = "0x1e9E2B1Ef6c69169DFb1dB75F216CA174BC3e95c";
+    const BUILDER_ADDRESS = "0xB7c94Ac7C1C16744E9f3cDDEC09F54920D2C39B8";
+
+    // ✅ Change this whenever you change backend builder fee.
+    // Backend f: 50 = 0.05%
+    const BUILDER_FEE_RATE = "0.1%";
+
+    // ✅ Bump this if you ever want to force re-approval.
+    const BUILDER_APPROVAL_VERSION = "v1";
+
+    const builderFeeRateDecimal = 0.001; // 0.1%
+
+    const builderApprovalKey = address
+        ? `builderApproved_${address}_${BUILDER_ADDRESS}_${BUILDER_FEE_RATE}_${BUILDER_APPROVAL_VERSION}`
+        : null;
 
     useEffect(() => {
         if (!address) {
@@ -40,11 +52,14 @@ const TradePanel = () => {
         }
 
         const savedAgent = localStorage.getItem(`agentApproved_${address}`);
-        const savedBuilder = localStorage.getItem(`builderApproved_${address}`);
+
+        const savedBuilder = builderApprovalKey
+            ? localStorage.getItem(builderApprovalKey)
+            : null;
 
         setAgentApproved(savedAgent === "true");
         setBuilderApproved(savedBuilder === "true");
-    }, [address]);
+    }, [address, builderApprovalKey]);
 
     const currentPrice = Number(prices?.[coin] || 0);
     const coinSize = Number(size || 0);
@@ -63,17 +78,23 @@ const TradePanel = () => {
 
     const estimatedFeeRate = 0.00045;
     const estimatedFee = positionValue * estimatedFeeRate;
-
-    const builderFeeRate = 0.0001; // 0.01%
-    const estimatedBuilderFee = positionValue * builderFeeRate;
+    const estimatedBuilderFee = positionValue * builderFeeRateDecimal;
 
     const canTrade =
         agentApproved &&
-        // builderApproved &&
+        builderApproved &&
         coinSize > 0 &&
         marginUsed > 0 &&
         marginUsed <= numericBalance &&
         !loading;
+
+    const resetBuilderApproval = () => {
+        setBuilderApproved(false);
+
+        if (builderApprovalKey) {
+            localStorage.removeItem(builderApprovalKey);
+        }
+    };
 
     const handleApproveAgent = async () => {
         try {
@@ -112,12 +133,15 @@ const TradePanel = () => {
 
             setApprovingBuilder(true);
 
-            await approveBuilderFee(BUILDER_ADDRESS);
+            await approveBuilderFee(BUILDER_ADDRESS, BUILDER_FEE_RATE);
 
             setBuilderApproved(true);
-            localStorage.setItem(`builderApproved_${address}`, "true");
 
-            alert("✅ Builder Fee Approved");
+            if (builderApprovalKey) {
+                localStorage.setItem(builderApprovalKey, "true");
+            }
+
+            alert(`✅ Builder Fee Approved (${BUILDER_FEE_RATE})`);
         } catch (err) {
             console.error(err);
             alert("❌ Builder fee approval failed");
@@ -133,10 +157,10 @@ const TradePanel = () => {
                 return;
             }
 
-            // if (!builderApproved) {
-            //     alert("⚠️ Please approve builder fee first");
-            //     return;
-            // }
+            if (!builderApproved) {
+                alert(`⚠️ Please approve builder fee first (${BUILDER_FEE_RATE})`);
+                return;
+            }
 
             if (!coinSize || coinSize <= 0) {
                 alert(`Enter valid ${coin} size`);
@@ -157,8 +181,21 @@ const TradePanel = () => {
                 leverage: numericLeverage,
             });
 
-            if (res?.error) alert(res.error);
-            else alert("✅ Trade executed");
+            if (res?.error) {
+                if (
+                    res.error.includes("Builder fee has not been approved") ||
+                    res.error.includes("builder fee") ||
+                    res.error.includes("Builder")
+                ) {
+                    resetBuilderApproval();
+                    alert(`⚠️ Builder fee approval required again for ${BUILDER_FEE_RATE}`);
+                    return;
+                }
+
+                alert(res.error);
+            } else {
+                alert("✅ Trade executed");
+            }
         } catch (err) {
             console.error(err);
             alert("❌ Trade error");
@@ -197,10 +234,10 @@ const TradePanel = () => {
                         className="w-full bg-purple-500 text-white py-2 rounded mb-3 font-semibold"
                     >
                         {builderApproved
-                            ? "Builder Fee Approved ✅"
+                            ? `Builder Fee Approved (${BUILDER_FEE_RATE}) ✅`
                             : approvingBuilder
                                 ? "Approving Builder..."
-                                : "Approve Builder Fee"}
+                                : `Approve Builder Fee (${BUILDER_FEE_RATE})`}
                     </button>
                 </>
             )}
@@ -326,7 +363,7 @@ const TradePanel = () => {
                 </div>
 
                 <div className="flex justify-between">
-                    <span>Est. Builder Fee</span>
+                    <span>Est. Builder Fee ({BUILDER_FEE_RATE})</span>
                     <span className="text-purple-400">
                         ${estimatedBuilderFee ? estimatedBuilderFee.toFixed(4) : "-"}
                     </span>
