@@ -8,23 +8,44 @@ import accountRoutes from "./routes/account.routes.js";
 
 const app = express();
 
-app.use(cors());
+const allowedOrigins = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "https://hyperliquid-puwj.vercel.app",
+];
+
+const corsOptions = {
+    origin: (origin, callback) => {
+        // Allow Postman, curl, server-to-server requests
+        if (!origin) {
+            return callback(null, true);
+        }
+
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+
+        return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+};
+
+// ✅ CORS must come before routes
+app.use(cors(corsOptions));
+
+// ✅ Handle browser preflight requests
+app.options("*", cors(corsOptions));
+
 app.use(express.json());
 
 app.use("/agent", agentRoutes);
 
-// keep old endpoint style working:
-// /trade
-// /close-position
 app.use("/", tradeRoutes);
 
-// /prices
 app.use("/", marketRoutes);
 
-// /balance/:address
-// /positions/:address
-// /debug-state/:address
-// /builder-stats/:address
 app.use("/", accountRoutes);
 
 app.get("/health", (req, res) => {
