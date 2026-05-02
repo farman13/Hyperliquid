@@ -50,9 +50,6 @@ const TradePanel = () => {
         ? `builderApproved_${address}_${BUILDER_ADDRESS}_${BUILDER_FEE_RATE}_${BUILDER_APPROVAL_VERSION}`
         : null;
 
-    // =====================================
-    // LOAD / CREATE USER-SPECIFIC AGENT
-    // =====================================
     useEffect(() => {
         const setupAgent = async () => {
             try {
@@ -79,6 +76,7 @@ const TradePanel = () => {
                 console.error("Agent setup error:", err);
                 setAgentData(null);
                 setAgentApproved(false);
+                setBuilderApproved(false);
             } finally {
                 setAgentLoading(false);
             }
@@ -106,9 +104,10 @@ const TradePanel = () => {
     const estimatedExchangeFee = positionValue * estimatedExchangeFeeRate;
     const estimatedBuilderFee = positionValue * builderFeeRateDecimal;
 
+    const tradingEnabled = agentApproved && builderApproved;
+
     const canPlaceOrder =
-        agentApproved &&
-        builderApproved &&
+        tradingEnabled &&
         coinSize > 0 &&
         marginUsed > 0 &&
         marginUsed <= numericBalance &&
@@ -122,10 +121,7 @@ const TradePanel = () => {
         }
     };
 
-    // =====================================
-    // APPROVE USER-SPECIFIC AGENT
-    // =====================================
-    const handleApproveAgent = async () => {
+    const handleEnableTrading = async () => {
         try {
             if (!address) {
                 alert("Connect wallet first");
@@ -137,63 +133,52 @@ const TradePanel = () => {
                 return;
             }
 
-            setApprovingAgent(true);
-
-            await approveAgent(agentData.agentAddress, agentData.agentName);
-
-            await markAgentApproved(address);
-
-            setAgentApproved(true);
-            setShowAgentModal(false);
-
-            alert("✅ Trading enabled");
-        } catch (err) {
-            console.error("Approve agent error:", err);
-            alert("❌ Agent approval failed");
-        } finally {
-            setApprovingAgent(false);
-        }
-    };
-
-    // =====================================
-    // APPROVE BUILDER FEE
-    // =====================================
-    const handleApproveBuilderFee = async () => {
-        try {
-            if (!address) {
-                alert("Connect wallet first");
-                return;
-            }
-
             if (!BUILDER_ADDRESS || BUILDER_ADDRESS === "0xYOUR_BUILDER_ADDRESS") {
                 alert("Set builder address first");
                 return;
             }
 
-            setApprovingBuilder(true);
+            // 1. Approve agent if not already approved
+            if (!agentApproved) {
+                setApprovingAgent(true);
 
-            await approveBuilderFee(BUILDER_ADDRESS, BUILDER_FEE_RATE);
+                await approveAgent(agentData.agentAddress, agentData.agentName);
 
-            setBuilderApproved(true);
+                await markAgentApproved(address);
 
-            if (builderApprovalKey) {
-                localStorage.setItem(builderApprovalKey, "true");
+                setAgentApproved(true);
+                setApprovingAgent(false);
             }
 
-            alert(`✅ Builder fee approved (${BUILDER_FEE_RATE})`);
+            // 2. Approve builder fee if not already approved
+            if (!builderApproved) {
+                setApprovingBuilder(true);
+
+                await approveBuilderFee(BUILDER_ADDRESS, BUILDER_FEE_RATE);
+
+                setBuilderApproved(true);
+
+                if (builderApprovalKey) {
+                    localStorage.setItem(builderApprovalKey, "true");
+                }
+
+                setApprovingBuilder(false);
+            }
+
+            setShowAgentModal(false);
+            alert("✅ Trading enabled successfully");
         } catch (err) {
-            console.error("Builder approval error:", err);
-            alert("❌ Builder fee approval failed");
+            console.error("Enable trading error:", err);
+
+            alert("❌ Trading enable failed");
         } finally {
+            setApprovingAgent(false);
             setApprovingBuilder(false);
         }
     };
 
-    // =====================================
-    // MAIN ACTION BUTTON
-    // =====================================
     const handleMainAction = async () => {
-        if (!agentApproved) {
+        if (!tradingEnabled) {
             setShowAgentModal(true);
             return;
         }
@@ -201,9 +186,6 @@ const TradePanel = () => {
         await handleTrade();
     };
 
-    // =====================================
-    // EXECUTE TRADE
-    // =====================================
     const handleTrade = async () => {
         try {
             if (!address) {
@@ -217,7 +199,7 @@ const TradePanel = () => {
             }
 
             if (!builderApproved) {
-                alert(`⚠️ Please approve builder fee first (${BUILDER_FEE_RATE})`);
+                setShowAgentModal(true);
                 return;
             }
 
@@ -248,6 +230,7 @@ const TradePanel = () => {
                     res.error.includes("Builder")
                 ) {
                     resetBuilderApproval();
+                    setShowAgentModal(true);
                     alert(`⚠️ Builder fee approval required again for ${BUILDER_FEE_RATE}`);
                     return;
                 }
@@ -275,6 +258,25 @@ const TradePanel = () => {
         }
     };
 
+    const mainButtonDisabled =
+        agentLoading ||
+        approvingAgent ||
+        approvingBuilder ||
+        loading ||
+        (tradingEnabled && !canPlaceOrder);
+
+    const mainButtonText = !tradingEnabled
+        ? agentLoading
+            ? "Preparing..."
+            : approvingAgent
+                ? "Approving Agent..."
+                : approvingBuilder
+                    ? "Approving Builder Fee..."
+                    : "Enable Trading"
+        : loading
+            ? "Executing..."
+            : `Place ${activeTab === "long" ? "LONG" : "SHORT"} Order`;
+
     return (
         <>
             <div className="w-full bg-[#0b1220] text-white p-4 border border-[#1e293b] shadow-xl">
@@ -286,20 +288,10 @@ const TradePanel = () => {
                     Available to Trade: ${balance || "0"} USDC
                 </div>
 
-                {isConnected && (
-                    <>
-                        <button
-                            onClick={handleApproveBuilderFee}
-                            disabled={approvingBuilder || builderApproved}
-                            className="w-full bg-purple-500 text-white py-2 rounded mb-3 font-semibold"
-                        >
-                            {builderApproved
-                                ? `Builder Fee Approved (${BUILDER_FEE_RATE}) ✅`
-                                : approvingBuilder
-                                    ? "Approving Builder..."
-                                    : `Approve Builder Fee (${BUILDER_FEE_RATE})`}
-                        </button>
-                    </>
+                {isConnected && tradingEnabled && (
+                    <div className="w-full bg-[#12352f] border border-[#2dd4bf] text-[#5eead4] py-2 rounded mb-3 font-semibold text-center text-sm">
+                        Trading Enabled ✅
+                    </div>
                 )}
 
                 <div className="flex gap-2 mb-4">
@@ -435,28 +427,15 @@ const TradePanel = () => {
                 ) : (
                     <button
                         onClick={handleMainAction}
-                        disabled={
-                            agentLoading ||
-                            approvingAgent ||
-                            loading ||
-                            (agentApproved && !canPlaceOrder)
-                        }
-                        className={`w-full py-3 rounded font-semibold ${!agentApproved
-                            ? "bg-[#4dd0c1] text-black"
-                            : canPlaceOrder
-                                ? "bg-blue-600"
-                                : "bg-gray-600"
+                        disabled={mainButtonDisabled}
+                        className={`w-full py-3 rounded font-semibold ${!tradingEnabled
+                                ? "bg-[#4dd0c1] text-black"
+                                : canPlaceOrder
+                                    ? "bg-blue-600"
+                                    : "bg-gray-600"
                             }`}
                     >
-                        {!agentApproved
-                            ? agentLoading
-                                ? "Preparing..."
-                                : approvingAgent
-                                    ? "Enabling..."
-                                    : "Enable Trading"
-                            : loading
-                                ? "Executing..."
-                                : `Place ${activeTab === "long" ? "LONG" : "SHORT"} Order`}
+                        {mainButtonText}
                     </button>
                 )}
             </div>
@@ -478,19 +457,38 @@ const TradePanel = () => {
 
                             <p className="text-gray-300 text-lg max-w-[650px] mx-auto mb-5">
                                 This signature is gas-free to send. It opens a decentralized
-                                channel for gas-free and instantaneous trading.
+                                channel for gas-free and instantaneous trading. After this,
+                                you will approve the platform builder fee for future trades.
                             </p>
 
+                            <div className="bg-[#0f2629] border border-[#21474d] rounded-xl p-4 mb-6 text-left text-sm text-gray-300">
+                                <div className="flex justify-between mb-2">
+                                    <span>Trading Agent</span>
+                                    <span className={agentApproved ? "text-green-400" : "text-yellow-400"}>
+                                        {agentApproved ? "Approved" : "Required"}
+                                    </span>
+                                </div>
+
+                                <div className="flex justify-between">
+                                    <span>Builder Fee</span>
+                                    <span className={builderApproved ? "text-green-400" : "text-yellow-400"}>
+                                        {builderApproved ? "Approved" : `${BUILDER_FEE_RATE} Required`}
+                                    </span>
+                                </div>
+                            </div>
+
                             <button
-                                onClick={handleApproveAgent}
-                                disabled={approvingAgent || agentLoading}
+                                onClick={handleEnableTrading}
+                                disabled={approvingAgent || approvingBuilder || agentLoading}
                                 className="w-full bg-[#4dd0c1] hover:bg-[#5de0d1] disabled:bg-gray-600 text-black py-4 rounded-xl text-lg font-medium"
                             >
-                                {approvingAgent
-                                    ? "Establishing..."
-                                    : agentLoading
-                                        ? "Preparing Agent..."
-                                        : "Establish Connection"}
+                                {agentLoading
+                                    ? "Preparing Agent..."
+                                    : approvingAgent
+                                        ? "Approving Agent..."
+                                        : approvingBuilder
+                                            ? "Approving Builder Fee..."
+                                            : "Establish Connection"}
                             </button>
                         </div>
                     </div>
