@@ -1,6 +1,5 @@
 // src/services/hyperliquid.js
-
-const BASE_URL = "https://hyperliquid-rho.vercel.app";
+import { BASE_URL } from "../config/base";
 
 export const getPrices = async () => {
     try {

@@ -34,6 +34,8 @@ const TradePanel = () => {
     const [agentApproved, setAgentApproved] = useState(false);
     const [agentData, setAgentData] = useState(null);
 
+    const [showAgentModal, setShowAgentModal] = useState(false);
+
     const [approvingBuilder, setApprovingBuilder] = useState(false);
     const [builderApproved, setBuilderApproved] = useState(false);
 
@@ -104,7 +106,7 @@ const TradePanel = () => {
     const estimatedExchangeFee = positionValue * estimatedExchangeFeeRate;
     const estimatedBuilderFee = positionValue * builderFeeRateDecimal;
 
-    const canTrade =
+    const canPlaceOrder =
         agentApproved &&
         builderApproved &&
         coinSize > 0 &&
@@ -142,8 +144,9 @@ const TradePanel = () => {
             await markAgentApproved(address);
 
             setAgentApproved(true);
+            setShowAgentModal(false);
 
-            alert("✅ Agent approved");
+            alert("✅ Trading enabled");
         } catch (err) {
             console.error("Approve agent error:", err);
             alert("❌ Agent approval failed");
@@ -187,6 +190,18 @@ const TradePanel = () => {
     };
 
     // =====================================
+    // MAIN ACTION BUTTON
+    // =====================================
+    const handleMainAction = async () => {
+        if (!agentApproved) {
+            setShowAgentModal(true);
+            return;
+        }
+
+        await handleTrade();
+    };
+
+    // =====================================
     // EXECUTE TRADE
     // =====================================
     const handleTrade = async () => {
@@ -197,7 +212,7 @@ const TradePanel = () => {
             }
 
             if (!agentApproved) {
-                alert("⚠️ Please approve agent first");
+                setShowAgentModal(true);
                 return;
             }
 
@@ -243,7 +258,8 @@ const TradePanel = () => {
                     res.error.includes("API Wallet")
                 ) {
                     setAgentApproved(false);
-                    alert("⚠️ Agent approval required again");
+                    setShowAgentModal(true);
+                    alert("⚠️ Trading connection required again");
                     return;
                 }
 
@@ -260,194 +276,227 @@ const TradePanel = () => {
     };
 
     return (
-        <div className="w-full bg-[#0b1220] text-white p-4 border border-[#1e293b] shadow-xl">
-            <div className="text-xs text-gray-400 mb-2">
-                {coin} Price: ${prices?.[coin] || "loading..."}
-            </div>
+        <>
+            <div className="w-full bg-[#0b1220] text-white p-4 border border-[#1e293b] shadow-xl">
+                <div className="text-xs text-gray-400 mb-2">
+                    {coin} Price: ${prices?.[coin] || "loading..."}
+                </div>
 
-            <div className="text-xs text-gray-400 mb-2">
-                Available to Trade: ${balance || "0"} USDC
-            </div>
+                <div className="text-xs text-gray-400 mb-2">
+                    Available to Trade: ${balance || "0"} USDC
+                </div>
 
-            {isConnected && (
-                <>
-                    <button
-                        onClick={handleApproveAgent}
-                        disabled={agentLoading || approvingAgent || agentApproved}
-                        className="w-full bg-yellow-500 text-black py-2 rounded mb-3 font-semibold"
+                {isConnected && (
+                    <>
+                        <button
+                            onClick={handleApproveBuilderFee}
+                            disabled={approvingBuilder || builderApproved}
+                            className="w-full bg-purple-500 text-white py-2 rounded mb-3 font-semibold"
+                        >
+                            {builderApproved
+                                ? `Builder Fee Approved (${BUILDER_FEE_RATE}) ✅`
+                                : approvingBuilder
+                                    ? "Approving Builder..."
+                                    : `Approve Builder Fee (${BUILDER_FEE_RATE})`}
+                        </button>
+                    </>
+                )}
+
+                <div className="flex gap-2 mb-4">
+                    <select
+                        value={leverage}
+                        onChange={(e) => setLeverage(Number(e.target.value))}
+                        className="bg-[#111827] px-3 py-2 rounded-lg text-sm w-1/3"
                     >
-                        {agentLoading
-                            ? "Preparing Agent..."
-                            : agentApproved
-                                ? "Agent Approved ✅"
-                                : approvingAgent
-                                    ? "Approving Agent..."
-                                    : "Approve Agent"}
-                    </button>
+                        <option value={2}>2x</option>
+                        <option value={5}>5x</option>
+                        <option value={10}>10x</option>
+                        <option value={20}>20x</option>
+                    </select>
 
-                    {agentData?.agentAddress && (
-                        <div className="text-[10px] text-gray-500 mb-3 break-all">
-                            Agent: {agentData.agentAddress}
-                        </div>
-                    )}
-
-                    <button
-                        onClick={handleApproveBuilderFee}
-                        disabled={approvingBuilder || builderApproved}
-                        className="w-full bg-purple-500 text-white py-2 rounded mb-3 font-semibold"
+                    <select
+                        value={coin}
+                        onChange={(e) => setCoin(e.target.value)}
+                        className="bg-[#111827] px-3 py-2 rounded-lg text-sm w-1/3"
                     >
-                        {builderApproved
-                            ? `Builder Fee Approved (${BUILDER_FEE_RATE}) ✅`
-                            : approvingBuilder
-                                ? "Approving Builder..."
-                                : `Approve Builder Fee (${BUILDER_FEE_RATE})`}
-                    </button>
-                </>
-            )}
+                        <option value="BTC">BTC</option>
+                        <option value="ETH">ETH</option>
+                        <option value="SOL">SOL</option>
+                    </select>
 
-            <div className="flex gap-2 mb-4">
-                <select
-                    value={leverage}
-                    onChange={(e) => setLeverage(Number(e.target.value))}
-                    className="bg-[#111827] px-3 py-2 rounded-lg text-sm w-1/3"
-                >
-                    <option value={2}>2x</option>
-                    <option value={5}>5x</option>
-                    <option value={10}>10x</option>
-                    <option value={20}>20x</option>
-                </select>
+                    <select className="bg-[#111827] px-3 py-2 rounded-lg text-sm w-1/3">
+                        <option>USDC</option>
+                    </select>
+                </div>
 
-                <select
-                    value={coin}
-                    onChange={(e) => setCoin(e.target.value)}
-                    className="bg-[#111827] px-3 py-2 rounded-lg text-sm w-1/3"
-                >
-                    <option value="BTC">BTC</option>
-                    <option value="ETH">ETH</option>
-                    <option value="SOL">SOL</option>
-                </select>
-
-                <select className="bg-[#111827] px-3 py-2 rounded-lg text-sm w-1/3">
-                    <option>USDC</option>
-                </select>
-            </div>
-
-            <div className="flex bg-[#111827] rounded-xl overflow-hidden mb-4">
-                <button
-                    onClick={() => setActiveTab("long")}
-                    className={`flex-1 py-2 ${activeTab === "long"
+                <div className="flex bg-[#111827] rounded-xl overflow-hidden mb-4">
+                    <button
+                        onClick={() => setActiveTab("long")}
+                        className={`flex-1 py-2 ${activeTab === "long"
                             ? "bg-green-500 text-black"
                             : "text-gray-400"
-                        }`}
-                >
-                    Buy / Long
-                </button>
-
-                <button
-                    onClick={() => setActiveTab("short")}
-                    className={`flex-1 py-2 ${activeTab === "short"
-                            ? "bg-red-500 text-black"
-                            : "text-gray-400"
-                        }`}
-                >
-                    Sell / Short
-                </button>
-            </div>
-
-            <div className="flex gap-4 mb-4 text-sm">
-                {["market", "limit"].map((type) => (
-                    <button
-                        key={type}
-                        onClick={() => setOrderType(type)}
-                        className={`${orderType === type
-                                ? "text-blue-400"
-                                : "text-gray-500"
                             }`}
                     >
-                        {type}
+                        Buy / Long
                     </button>
-                ))}
+
+                    <button
+                        onClick={() => setActiveTab("short")}
+                        className={`flex-1 py-2 ${activeTab === "short"
+                            ? "bg-red-500 text-black"
+                            : "text-gray-400"
+                            }`}
+                    >
+                        Sell / Short
+                    </button>
+                </div>
+
+                <div className="flex gap-4 mb-4 text-sm">
+                    {["market", "limit"].map((type) => (
+                        <button
+                            key={type}
+                            onClick={() => setOrderType(type)}
+                            className={`${orderType === type
+                                ? "text-blue-400"
+                                : "text-gray-500"
+                                }`}
+                        >
+                            {type}
+                        </button>
+                    ))}
+                </div>
+
+                <input
+                    type="number"
+                    placeholder={`Size (${coin})`}
+                    value={size}
+                    onChange={(e) => setSize(e.target.value)}
+                    className="w-full p-2 bg-[#111827] rounded mb-3"
+                />
+
+                <div className="bg-[#111827] rounded mb-3 p-3 text-xs text-gray-400 space-y-2">
+                    <div className="flex justify-between">
+                        <span>Entry Price</span>
+                        <span className="text-white">
+                            ${currentPrice ? currentPrice.toFixed(2) : "-"}
+                        </span>
+                    </div>
+
+                    <div className="flex justify-between">
+                        <span>Size</span>
+                        <span className="text-white">
+                            {coinSize ? coinSize : "-"} {coin}
+                        </span>
+                    </div>
+
+                    <div className="flex justify-between">
+                        <span>Position Value</span>
+                        <span className="text-white">
+                            ${positionValue ? positionValue.toFixed(2) : "-"}
+                        </span>
+                    </div>
+
+                    <div className="flex justify-between">
+                        <span>Margin Used</span>
+                        <span className="text-white">
+                            ${marginUsed ? marginUsed.toFixed(2) : "-"}
+                        </span>
+                    </div>
+
+                    <div className="flex justify-between">
+                        <span>Leverage</span>
+                        <span className="text-white">{numericLeverage}x</span>
+                    </div>
+
+                    <div className="flex justify-between">
+                        <span>Est. Liquidation</span>
+                        <span className="text-red-400">
+                            ${estimatedLiquidation ? estimatedLiquidation.toFixed(2) : "-"}
+                        </span>
+                    </div>
+
+                    <div className="flex justify-between">
+                        <span>Est. Exchange Fee</span>
+                        <span className="text-yellow-400">
+                            ${estimatedExchangeFee ? estimatedExchangeFee.toFixed(4) : "-"}
+                        </span>
+                    </div>
+
+                    <div className="flex justify-between">
+                        <span>Est. Builder Fee ({BUILDER_FEE_RATE})</span>
+                        <span className="text-purple-400">
+                            ${estimatedBuilderFee ? estimatedBuilderFee.toFixed(4) : "-"}
+                        </span>
+                    </div>
+                </div>
+
+                {!isConnected ? (
+                    <ConnectButton />
+                ) : (
+                    <button
+                        onClick={handleMainAction}
+                        disabled={
+                            agentLoading ||
+                            approvingAgent ||
+                            loading ||
+                            (agentApproved && !canPlaceOrder)
+                        }
+                        className={`w-full py-3 rounded font-semibold ${!agentApproved
+                            ? "bg-[#4dd0c1] text-black"
+                            : canPlaceOrder
+                                ? "bg-blue-600"
+                                : "bg-gray-600"
+                            }`}
+                    >
+                        {!agentApproved
+                            ? agentLoading
+                                ? "Preparing..."
+                                : approvingAgent
+                                    ? "Enabling..."
+                                    : "Enable Trading"
+                            : loading
+                                ? "Executing..."
+                                : `Place ${activeTab === "long" ? "LONG" : "SHORT"} Order`}
+                    </button>
+                )}
             </div>
 
-            <input
-                type="number"
-                placeholder={`Size (${coin})`}
-                value={size}
-                onChange={(e) => setSize(e.target.value)}
-                className="w-full p-2 bg-[#111827] rounded mb-3"
-            />
+            {showAgentModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+                    <div className="relative w-full max-w-[760px] rounded-2xl border border-[#26343b] bg-[#081719] p-8 text-white shadow-2xl">
+                        <button
+                            onClick={() => setShowAgentModal(false)}
+                            className="absolute right-6 top-6 text-gray-300 hover:text-white text-3xl"
+                        >
+                            ×
+                        </button>
 
-            <div className="bg-[#111827] rounded mb-3 p-3 text-xs text-gray-400 space-y-2">
-                <div className="flex justify-between">
-                    <span>Entry Price</span>
-                    <span className="text-white">
-                        ${currentPrice ? currentPrice.toFixed(2) : "-"}
-                    </span>
+                        <div className="text-center">
+                            <h2 className="text-2xl font-semibold mb-5">
+                                Establish Connection
+                            </h2>
+
+                            <p className="text-gray-300 text-lg max-w-[650px] mx-auto mb-5">
+                                This signature is gas-free to send. It opens a decentralized
+                                channel for gas-free and instantaneous trading.
+                            </p>
+
+                            <button
+                                onClick={handleApproveAgent}
+                                disabled={approvingAgent || agentLoading}
+                                className="w-full bg-[#4dd0c1] hover:bg-[#5de0d1] disabled:bg-gray-600 text-black py-4 rounded-xl text-lg font-medium"
+                            >
+                                {approvingAgent
+                                    ? "Establishing..."
+                                    : agentLoading
+                                        ? "Preparing Agent..."
+                                        : "Establish Connection"}
+                            </button>
+                        </div>
+                    </div>
                 </div>
-
-                <div className="flex justify-between">
-                    <span>Size</span>
-                    <span className="text-white">
-                        {coinSize ? coinSize : "-"} {coin}
-                    </span>
-                </div>
-
-                <div className="flex justify-between">
-                    <span>Position Value</span>
-                    <span className="text-white">
-                        ${positionValue ? positionValue.toFixed(2) : "-"}
-                    </span>
-                </div>
-
-                <div className="flex justify-between">
-                    <span>Margin Used</span>
-                    <span className="text-white">
-                        ${marginUsed ? marginUsed.toFixed(2) : "-"}
-                    </span>
-                </div>
-
-                <div className="flex justify-between">
-                    <span>Leverage</span>
-                    <span className="text-white">{numericLeverage}x</span>
-                </div>
-
-                <div className="flex justify-between">
-                    <span>Est. Liquidation</span>
-                    <span className="text-red-400">
-                        ${estimatedLiquidation ? estimatedLiquidation.toFixed(2) : "-"}
-                    </span>
-                </div>
-
-                <div className="flex justify-between">
-                    <span>Est. Exchange Fee</span>
-                    <span className="text-yellow-400">
-                        ${estimatedExchangeFee ? estimatedExchangeFee.toFixed(4) : "-"}
-                    </span>
-                </div>
-
-                <div className="flex justify-between">
-                    <span>Est. Builder Fee ({BUILDER_FEE_RATE})</span>
-                    <span className="text-purple-400">
-                        ${estimatedBuilderFee ? estimatedBuilderFee.toFixed(4) : "-"}
-                    </span>
-                </div>
-            </div>
-
-            {!isConnected ? (
-                <ConnectButton />
-            ) : (
-                <button
-                    onClick={handleTrade}
-                    disabled={!canTrade}
-                    className={`w-full py-3 rounded font-semibold ${canTrade ? "bg-blue-600" : "bg-gray-600"
-                        }`}
-                >
-                    {loading
-                        ? "Executing..."
-                        : `Place ${activeTab === "long" ? "LONG" : "SHORT"} Order`}
-                </button>
             )}
-        </div>
+        </>
     );
 };
 
