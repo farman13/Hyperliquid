@@ -1,4 +1,4 @@
-const BASE_URL = "https://hyperliquid-cf7s.onrender.com";
+import { BASE_URL } from "../config/base";
 
 export async function closePosition({ coin, address }) {
     try {

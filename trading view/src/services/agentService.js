@@ -1,8 +1,7 @@
 import { ExchangeClient, HttpTransport } from "@nktkas/hyperliquid";
 import { createWalletClient, custom } from "viem";
 import { arbitrum } from "viem/chains";
-
-const BASE_URL = "https://hyperliquid-cf7s.onrender.com";
+import { BASE_URL } from "../config/base";
 
 const getMetaMaskProvider = () => {
     if (!window.ethereum) {

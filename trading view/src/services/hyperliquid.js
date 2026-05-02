@@ -1,6 +1,5 @@
 // src/services/hyperliquid.js
-
-const BASE_URL = "https://hyperliquid-cf7s.onrender.com";
+import { BASE_URL } from "../config/base";
 
 export const getPrices = async () => {
     try {
