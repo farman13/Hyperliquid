@@ -1,30 +1,58 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
+import Header from './components/Header'
+import TickerBar from './components/TickerBar'
 import TradingViewWidget from './components/TradingViewWidget'
 import TradePanel from './components/TradePanel'
-import { ConnectButton } from '@rainbow-me/rainbowkit'
-import Positions from './components/Positions'
-import TransferPanel from './components/DepositWithdraw'
-import OpenOrders from './components/OpenOrders'
+import BottomTabs from './components/BottomTabs'
+import DepositWithdraw from './components/DepositWithdraw'
+import History from './components/History'
+import './App.css'
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const [sidebarOpen, setSidebarOpen]   = useState(false)
+  const [activePage,  setActivePage]    = useState('trade') // 'trade' | 'history'
+
+  const openSidebar  = useCallback(() => setSidebarOpen(true),  [])
+  const closeSidebar = useCallback(() => setSidebarOpen(false), [])
 
   return (
-    <div className=' bg-black'>
-      < ConnectButton />
-      <div className='flex bg-black'>
-        <div className='m-4 ml-6'>
-          <TradingViewWidget />
+    <div className="app-shell">
+      <Header
+        onOpenSidebar={openSidebar}
+        sidebarOpen={sidebarOpen}
+        activePage={activePage}
+        onNavigate={setActivePage}
+      />
+      <TickerBar />
+
+      {activePage === 'trade' ? (
+        /* ── TRADE PAGE ── */
+        <div className="trading-layout">
+          <div className="chart-area">
+            <div className="chart-wrap">
+              <TradingViewWidget />
+            </div>
+            <div className="bottom-area">
+              <BottomTabs />
+            </div>
+          </div>
+
+          <div
+            className={`sidebar-overlay ${sidebarOpen ? 'visible' : ''}`}
+            onClick={closeSidebar}
+          />
+
+          <div className={`right-sidebar ${sidebarOpen ? 'open' : ''}`}>
+            <TradePanel onClose={closeSidebar} />
+            <DepositWithdraw />
+          </div>
         </div>
-        <div className="w-[400px] m-4">
-          <TradePanel />
-          <TransferPanel />
-          <Positions />
-          <OpenOrders />
+      ) : (
+        /* ── HISTORY PAGE ── */
+        <div className="history-page">
+          <History fullPage />
         </div>
-      </div>
-    </div >
+      )}
+    </div>
   )
 }
-
-export default App
