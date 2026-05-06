@@ -105,3 +105,12 @@
   .sidebar-overlay  { display: none !important; }
   .right-sidebar    { transform: none !important; }
 }
+
+.sidebar-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-content > * + * {
+  border-top: 1px solid rgba(0,212,255,0.07);
+}

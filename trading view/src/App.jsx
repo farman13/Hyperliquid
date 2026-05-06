@@ -32,6 +32,7 @@ export default function App() {
             <div className="chart-wrap">
               <TradingViewWidget />
             </div>
+            
             <div className="bottom-area">
               <BottomTabs />
             </div>
@@ -43,9 +44,11 @@ export default function App() {
           />
 
           <div className={`right-sidebar ${sidebarOpen ? 'open' : ''}`}>
-            <TradePanel onClose={closeSidebar} />
-            <DepositWithdraw />
-          </div>
+  <div className="sidebar-content">
+    <TradePanel onClose={closeSidebar} />
+    <DepositWithdraw />
+  </div>
+</div>
         </div>
       ) : (
         /* ── HISTORY PAGE ── */
