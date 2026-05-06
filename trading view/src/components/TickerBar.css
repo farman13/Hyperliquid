@@ -1,8 +1,10 @@
 /* MAIN BAR */
 .ticker-bar {
-  display: flex;                /* 🔥 enable layout split */
+  display: flex;
+  /* 🔥 enable layout split */
   align-items: center;
-  justify-content: space-between; /* 🔥 push right section to end */
+  justify-content: space-between;
+  /* 🔥 push right section to end */
   height: 36px;
   width: 100%;
   background: rgba(7, 13, 23, 0.8);
@@ -14,7 +16,8 @@
 
 /* LEFT SIDE */
 .ticker-left {
-  flex: 1;                     /* 🔥 take remaining space */
+  flex: 1;
+  /* 🔥 take remaining space */
   overflow: hidden;
 }
 
@@ -27,6 +30,7 @@
   overflow-x: auto;
   scrollbar-width: none;
 }
+
 .ticker-inner::-webkit-scrollbar {
   display: none;
 }
@@ -37,10 +41,11 @@
   align-items: center;
   gap: 8px;
   padding: 0 16px;
-  border-right: 1px solid rgba(255,152,0,0.07);
+  border-right: 1px solid rgba(255, 152, 0, 0.07);
   white-space: nowrap;
   flex-shrink: 0;
 }
+
 .ticker-item:first-child {
   padding-left: 0;
 }
@@ -62,7 +67,8 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  flex-shrink: 0;              /* 🔥 prevents shrinking */
+  flex-shrink: 0;
+  /* 🔥 prevents shrinking */
 }
 
 /* BALANCE */
@@ -71,8 +77,8 @@
   align-items: center;
   gap: 6px;
   padding: 5px 12px;
-  background: rgba(255,152,0,0.08);
-  border: 1px solid rgba(255,152,0,0.15);
+  background: rgba(255, 152, 0, 0.08);
+  border: 1px solid rgba(255, 152, 0, 0.15);
   border-radius: 99px;
   font-size: 12px;
 }
@@ -94,15 +100,15 @@
 }
 
 .connect-wrapper button {
-  background: rgba(255,152,0,0.12) !important;
-  border: 1px solid rgba(255,152,0,0.25) !important;
+  background: rgba(255, 152, 0, 0.12) !important;
+  border: 1px solid rgba(255, 152, 0, 0.25) !important;
   color: var(--orange-bright) !important;
 
-  font-size: 12px !important;     
-  padding: 4px 10px !important;   
-  height: 28px !important;        
+  font-size: 12px !important;
+  padding: 4px 10px !important;
+  height: 28px !important;
 
-  border-radius: 8px !important;  
+  border-radius: 8px !important;
   line-height: 1 !important;
 
   display: flex !important;
@@ -111,5 +117,21 @@
 }
 
 .connect-wrapper button:hover {
-  background: rgba(255,152,0,0.2) !important;
+  background: rgba(255, 152, 0, 0.2) !important;
+}
+
+.ticker-item {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.ticker-item.active {
+  background: rgba(0, 212, 255, 0.08);
+  border-radius: 8px;
+}
+
+.ticker-item.active .ticker-label,
+.ticker-item.active .ticker-price {
+  color: #00d4ff;
 }

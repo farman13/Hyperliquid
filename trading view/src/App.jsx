@@ -9,10 +9,13 @@ import History from './components/History'
 import './App.css'
 
 export default function App() {
-  const [sidebarOpen, setSidebarOpen]   = useState(false)
-  const [activePage,  setActivePage]    = useState('trade') // 'trade' | 'history'
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [activePage, setActivePage] = useState('trade')
 
-  const openSidebar  = useCallback(() => setSidebarOpen(true),  [])
+  // ✅ GLOBAL SELECTED MARKET
+  const [selectedCoin, setSelectedCoin] = useState('BTC')
+
+  const openSidebar = useCallback(() => setSidebarOpen(true), [])
   const closeSidebar = useCallback(() => setSidebarOpen(false), [])
 
   return (
@@ -23,16 +26,19 @@ export default function App() {
         activePage={activePage}
         onNavigate={setActivePage}
       />
-      <TickerBar />
+
+      <TickerBar
+        selectedCoin={selectedCoin}
+        onSelectCoin={setSelectedCoin}
+      />
 
       {activePage === 'trade' ? (
-        /* ── TRADE PAGE ── */
         <div className="trading-layout">
           <div className="chart-area">
             <div className="chart-wrap">
-              <TradingViewWidget />
+              <TradingViewWidget coin={selectedCoin} />
             </div>
-            
+
             <div className="bottom-area">
               <BottomTabs />
             </div>
@@ -44,14 +50,18 @@ export default function App() {
           />
 
           <div className={`right-sidebar ${sidebarOpen ? 'open' : ''}`}>
-  <div className="sidebar-content">
-    <TradePanel onClose={closeSidebar} />
-    <DepositWithdraw />
-  </div>
-</div>
+            <div className="sidebar-content">
+              <TradePanel
+                coin={selectedCoin}
+                setCoin={setSelectedCoin}
+                onClose={closeSidebar}
+              />
+
+              <DepositWithdraw />
+            </div>
+          </div>
         </div>
       ) : (
-        /* ── HISTORY PAGE ── */
         <div className="history-page">
           <History fullPage />
         </div>
